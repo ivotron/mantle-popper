@@ -1,0 +1,5 @@
+fetch/
+*.ipynb_checkpoints/
+*.png
+*.log
+*.tar.gz
