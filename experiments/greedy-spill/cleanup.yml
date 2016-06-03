@@ -10,10 +10,33 @@
 
 - hosts: all
   become: True
+  tasks:
+  - name: decimate all containers
+    shell: docker ps -aq --filter="ancestor=piha.soe.ucsc.edu:5000/zlog/ceph:jewel"
+    register: containers
+  - name: delete ceph containers
+    shell: docker rm -f {{ item }}
+    with_items: containers.stdout_lines
+
+  - name: decimate all containers
+    shell: docker ps -aq --filter="ancestor=piha.soe.ucsc.edu:5000/michaelsevilla/mantle:jewel"
+    register: containers
+  - name: delete ceph containers
+    shell: docker rm -f {{ item }}
+    with_items: containers.stdout_lines
+
+  - name: purge ceph directories
+    file: path={{ item }} state=absent
+    with_items:
+      - /etc/ceph/
+      - /var/lib/ceph/
+
+- hosts: all
+  become: True
   roles:
   - role: cleanup
     images:
-    - piha.soe.ucsc.edu:5000/ivotron/ceph-mantle:jewel
+    - piha.soe.ucsc.edu:5000/michaelsevilla/mantle:jewel
     - michaelsevilla/graphite
     - michaelsevilla/collectl
     - michaelsevilla/mdtest
@@ -25,27 +48,6 @@
     - command: docker rm cephfs -f
       ignore_errors: True
 
-- hosts: all
-  become: True
-  tasks:
-  - name: decimate all containers
-    shell: docker ps -aq --filter="ancestor=piha.soe.ucsc.edu:5000/ivotron/ceph-mantle:jewel"
-    register: containers
-  - name: delete ceph containers
-    shell: docker rm -f {{ item }}
-    with_items: containers.stdout_lines
-  - name: decimate all containers
-    shell: docker ps -aq --filter="ancestor=piha.soe.ucsc.edu:5000/michaelsevilla/mdtest"
-    register: containers
-  - name: delete ceph containers
-    shell: docker rm -f {{ item }}
-    with_items: containers.stdout_lines
-  - name: purge ceph directories
-    file: path={{ item }} state=absent
-    with_items:
-      - /etc/ceph/
-      - /var/lib/ceph/
-
 - hosts: osds
   become: True
   tasks:
@@ -55,7 +57,7 @@
   - name: disk zap again
     command: sgdisk --zap-all --clear --mbrtogpt -g -- {{ item }}
     with_items: ceph_osd_docker_devices
-  - name: journal zap
-    command: sgdisk --zap-all --clear --mbrtogpt -g -- {{ journal }}
-  - name: journal zap again
-    command: sgdisk --zap-all --clear --mbrtogpt -g -- {{ journal }}
+#  - name: journal zap
+#    command: sgdisk --zap-all --clear --mbrtogpt -g -- {{ journal }}
+#  - name: journal zap again
+#    command: sgdisk --zap-all --clear --mbrtogpt -g -- {{ journal }}

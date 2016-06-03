@@ -13,11 +13,10 @@ Install
 Quickstart
 ----------
 
-1. Start experiment master (i.e., a container with
-[Ansible](https://www.ansible.com/how-ansible-works)):
+1. Start an [Ansible](https://www.ansible.com/how-ansible-works)) container:
 
    ```bash
-   $ cd experiments; ./emaster.sh
+   $ cd experiments; ./ansible.sh
    ```
 
 2. Choose an experiment and setup the cluster inventory:

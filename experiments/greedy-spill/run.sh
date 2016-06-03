@@ -2,6 +2,7 @@
 
 set -ex
 
-ANSIBLE_LOG_PATH="logs/ceph-zeqr.log" \
+ANSIBLE_LOG_PATH="logs/ceph-test.log" \
 ansible-playbook --forks 50 --skip-tags "with_pkg" \
-ceph.yml workloads/zeqr.yml workloads/zeqr-isolated.yml workloads/zeqr-mantle.yml collect.yml
+ceph.yml
+#workloads/zeqr.yml workloads/zeqr-isolated.yml workloads/zeqr-mantle.yml collect.yml
