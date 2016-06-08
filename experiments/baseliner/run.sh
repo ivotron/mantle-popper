@@ -1,7 +1,5 @@
 #!/bin/bash
 
-rm ../*.tar.gz >> /dev/null 2>&1
-
 set -ex
 
 ANSIBLE_LOG_PATH="logs/baseliner.log" \

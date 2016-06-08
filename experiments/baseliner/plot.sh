@@ -10,3 +10,5 @@ docker run --rm \
   jupyter nbconvert \
   --stdout --execute results/visualize.ipynb \
   >> /dev/null 
+
+cp results/*.png ../graphs/
