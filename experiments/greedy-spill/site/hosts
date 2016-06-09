@@ -19,23 +19,10 @@ issdm-12
 issdm-18
 issdm-15
 
-[clients0]
-issdm-45
-issdm-17
-issdm-24
-issdm-27
-issdm-29
-issdm-34
-issdm-40
-
-[clients1]
+[clients]
 issdm-20
 issdm-16
 issdm-38
-issdm-0
-issdm-1
-issdm-11
-issdm-14
 
 [graphite]
-piha.soe.ucsc.edu
+192.168.140.2

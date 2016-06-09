@@ -7,10 +7,10 @@
   become: True
   tasks:
   - name: delete the config directory on the ansible server
-    file: path="{{ playbook_dir }}/fetch" state=absent
+    file: path="{{ playbook_dir|dirname }}/fetch" state=absent
 
   - name: delete old logs
-    shell: ls -d {{ playbook_dir }}/logs/* | grep -v gitkeep
+    shell: ls -d {{ playbook_dir|dirname }}/results/logs/*.log
     register: logs
     ignore_errors: True
   - file: path={{ item }} state=absent
@@ -18,7 +18,7 @@
     - "{{ logs.stdout_lines }}"
 
   - name: delete old utilizations
-    shell: ls -d {{ playbook_dir }}/utilizations/* | grep -v gitkeep
+    shell: ls -d {{ playbook_dir|dirname }}/results/utilization/* | grep -v gitkeep
     register: utilizations
     ignore_errors: True
   - file: path={{ item }} state=absent
@@ -26,14 +26,14 @@
     - "{{ utilizations.stdout_lines }}"
 
   - name: delete old results
-    shell: ls -d {{ playbook_dir }}/results/* | grep -v gitkeep | grep -v visualize
+    shell: ls -d {{ playbook_dir|dirname }}/results/*.txt
     register: results
     ignore_errors: True
   - file: path={{ item }} state=absent
     with_items: 
     - "{{ results.stdout_lines }}"
 
-- hosts: mons, osds, mdss, 
+- hosts: mons, osds, mdss, clients
   become: True
   tasks:
   - name: decimate all containers

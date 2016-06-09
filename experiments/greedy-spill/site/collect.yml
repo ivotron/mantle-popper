@@ -13,8 +13,9 @@
       shell: tar czf /tmp/graphite/whisper/{{ item }}.tar.gz /tmp/graphite/whisper/{{ item }}
       with_items: 
         - "{{ result.stdout_lines }}"
+
     - name: get those tars
-      fetch: src=/tmp/graphite/whisper/{{ item }}.tar.gz dest={{ playbook_dir }}/utilization/{{ item }}.tar.gz flat=yes
+      fetch: src=/tmp/graphite/whisper/{{ item }}.tar.gz dest={{ playbook_dir|dirname }}/results/utilization/{{ item }}.tar.gz flat=yes
       with_items:
         - "{{ result.stdout_lines }}" 
 
@@ -22,6 +23,7 @@
   tasks:
     - name: dump the logs
       shell: docker logs ceph-{{ ansible_hostname }}-mds > out 2>&1
+
     - name: get those logs
-      fetch: src=out dest={{ playbook_dir }}/logs/{{ ansible_hostname }}-daemon.log flat=yes
+      fetch: src=out dest={{ playbook_dir|dirname }}/results/logs/{{ ansible_hostname }}-daemon.log flat=yes
 
