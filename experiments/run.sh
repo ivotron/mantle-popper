@@ -1,11 +1,14 @@
 #!/bin/bash
 
+root=`dirname $0`
+pwd=`pwd`
+
+rm $root/*.tar.gz >> /dev/null 2>&1
 set -ex
 
 for experiment in baseliner greedy-spill; do 
-  cd $experiment
+  cd $root/$experiment
   ./run.sh
-  cd -
-
-  tar czf $experiment.tar.gz $experiment
 done
+
+cd $pwd
