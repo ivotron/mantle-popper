@@ -39,7 +39,7 @@
   roles: 
     - monitor/graphite
 
-- hosts: osds, mdss
+- hosts: mdss
   become: True
   roles:
     - monitor/collectl

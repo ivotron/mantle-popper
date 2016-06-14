@@ -11,10 +11,4 @@ $RUN $WORKLOAD/mdtest.yml
 $RUN collect.yml
 cd -
 
-
-cd ../
-tar czf greedy-spill.tar.gz greedy-spill
-cd -
-
-#tar czf mdtest.tar.gz baseliner
-#cd -
+tar czf ../greedy-spill.tar.gz ../greedy-spill

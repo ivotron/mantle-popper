@@ -1,7 +1,7 @@
 #!/bin/bash
 
 root=`dirname $0`
-pwd=`pwd`
+mydir=`pwd`
 
 rm $root/*.tar.gz >> /dev/null 2>&1
 set -ex
@@ -9,6 +9,5 @@ set -ex
 for experiment in baseliner greedy-spill; do 
   cd $root/$experiment
   ./run.sh
+  cd $mydir
 done
-
-cd $pwd

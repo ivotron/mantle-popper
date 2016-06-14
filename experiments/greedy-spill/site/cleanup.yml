@@ -7,7 +7,7 @@
   become: True
   tasks:
   - name: delete the config directory on the ansible server
-    file: path="{{ playbook_dir|dirname }}/fetch" state=absent
+    file: path="{{ playbook_dir }}/fetch" state=absent
 
   - name: delete old logs
     shell: ls -d {{ playbook_dir|dirname }}/results/logs/*.log
