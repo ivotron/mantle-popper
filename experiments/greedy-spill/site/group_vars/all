@@ -26,8 +26,8 @@ ceph_conf_overrides:
      debug mds: 0
      max mds: 5
      mds log: true
-     mds revoke cap timeout: 960
-     mds recall state timeout: 960
+     mds revoke cap timeout: 1800
+     mds recall state timeout: 1800
      mds bal max until: -1
      mds bal mode: 1
      mds cache size: 0
