@@ -7,7 +7,7 @@
              --name=client \
              --volumes-from cephfs \
              michaelsevilla/mdtest \
-             -F -C -n 500000 -d /cephfs/greedy-spill-{{ ansible_hostname }}
+             -F -C -n 50000 -d /cephfs/greedy-spill-{{ ansible_hostname }}
     register: results
 
   - name: spit results to a file

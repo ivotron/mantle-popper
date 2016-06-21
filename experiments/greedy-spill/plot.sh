@@ -18,6 +18,13 @@ for i in `ls`; do
     --entrypoint=whisper-dump.py \
     michaelsevilla/graphite \
     /tmp/graphite/whisper/$node/cpuload/avg1.wsp > cpu-$node.out
+
+  echo "... dumping requests for $node"
+  docker run \
+    -v `pwd`/tmp:/tmp \
+    --entrypoint=whisper-dump.py \
+    michaelsevilla/graphite \
+    /tmp/graphite/whisper/$node/mds/reply.wsp > reply-$node.out
 done
 cd -
 

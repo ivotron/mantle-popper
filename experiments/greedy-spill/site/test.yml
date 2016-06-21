@@ -1,0 +1,5 @@
+---
+- hosts: graphite
+  become: True
+  roles:
+    - monitor/graphite
