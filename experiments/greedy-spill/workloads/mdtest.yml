@@ -7,7 +7,7 @@
              --name=client \
              --volumes-from cephfs \
              michaelsevilla/mdtest \
-             -F -C -n 50000 -d /cephfs/greedy-spill-{{ ansible_hostname }}
+             -F -C -n 100000 -d /cephfs/greedy-spill-{{ ansible_hostname }}
     register: results
 
   - name: spit results to a file
@@ -23,5 +23,4 @@
   - command:  docker exec {{ ansible_hostname }} ceph -s
     register: result
   - debug:    var=result.stdout_lines
-
-
+  - pause:    minutes=2

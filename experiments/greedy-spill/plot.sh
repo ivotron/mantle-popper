@@ -3,7 +3,7 @@
 rm results/*.png >> /dev/null 2>&1
 rm -r results/utilization/tmp results/utilization/*.out >> /dev/null 2>&1
 
-set -ex
+set -x
 
 sudo chown -R ${USER}:${USER} .
 
@@ -17,7 +17,7 @@ for i in `ls`; do
     -v `pwd`/tmp:/tmp \
     --entrypoint=whisper-dump.py \
     michaelsevilla/graphite \
-    /tmp/graphite/whisper/$node/cpuload/avg1.wsp > cpu-$node.out
+    /tmp/graphite/whisper/$node/cputotals/user.wsp > cpu-$node.out
 
   echo "... dumping requests for $node"
   docker run \
