@@ -1,5 +1,0 @@
----
-- hosts: graphite
-  become: True
-  tasks:
-    - shell: echo hi
