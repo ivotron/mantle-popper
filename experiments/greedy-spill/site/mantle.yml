@@ -1,8 +1,6 @@
 ---
 # Defines deployment design and assigns role to server groups
 
-- include: cleanup.yml
-
 - hosts: mons
   become: True
   roles:
@@ -33,17 +31,6 @@
   become: True
   roles:
     - ceph-client
-
-- hosts: graphite
-  become: True
-  roles: 
-    - monitor/graphite
-
-- hosts: mdss
-  become: True
-  roles:
-    - monitor/collectl
-    - ceph/ceph-stats
 
 - name: start Mantle!!!
   hosts: mdss
@@ -81,3 +68,25 @@
     - name: turn on the sequencer balancer
       command: "{{ ceph }} mds set lua_balancer_script bal_seq"
       run_once: True
+
+
+- hosts: graphite
+  become: True
+  roles: 
+    - monitor/graphite
+
+- hosts: mdss
+  become: True
+  roles:
+    - monitor/collectl
+    - ceph/ceph-stats
+
+- hosts: graphite
+  tasks:
+    - name: wait for graphite to start receiving reply metrics
+      shell: docker exec graphite ls /opt/graphite/storage/whisper/{{ groups['mdss'][0] }}/mds/reply.wsp
+      register: result
+      until: result.rc == 0
+      retries: 600
+      poll: 60
+

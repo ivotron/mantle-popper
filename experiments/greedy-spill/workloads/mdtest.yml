@@ -23,4 +23,3 @@
   - command:  docker exec {{ ansible_hostname }} ceph -s
     register: result
   - debug:    var=result.stdout_lines
-  - pause:    minutes=2

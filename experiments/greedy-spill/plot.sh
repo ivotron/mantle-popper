@@ -13,18 +13,25 @@ for i in `ls`; do
   tar xzf $i
   node="${i%.tar.gz}"
   echo "... dumping cpu utilization for $node"
-  docker run \
+  docker run --rm \
     -v `pwd`/tmp:/tmp \
     --entrypoint=whisper-dump.py \
     michaelsevilla/graphite \
     /tmp/graphite/whisper/$node/cputotals/user.wsp > cpu-$node.out
 
   echo "... dumping requests for $node"
-  docker run \
+  docker run --rm \
     -v `pwd`/tmp:/tmp \
     --entrypoint=whisper-dump.py \
     michaelsevilla/graphite \
     /tmp/graphite/whisper/$node/mds/reply.wsp > reply-$node.out
+
+  echo "... dumping requests for $node"
+  docker run --rm \
+    -v `pwd`/tmp:/tmp \
+    --entrypoint=whisper-dump.py \
+    michaelsevilla/graphite \
+    /tmp/graphite/whisper/$node/mds/reply_latency/avgcount.wsp > avgcount-$node.out
 done
 cd -
 

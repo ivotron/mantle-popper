@@ -6,9 +6,8 @@ export WORKLOAD="../workloads"
 export RUN="ansible-playbook --skip-tags with_pkg"
 
 cd site
-$RUN mantle.yml
-$RUN $WORKLOAD/mdtest.yml
-$RUN collect.yml
+$RUN cleanup.yml
+$RUN mantle.yml $WORKLOAD/mdtest.yml collect.yml
 cd -
 
 tar czf ../greedy-spill.tar.gz ../greedy-spill

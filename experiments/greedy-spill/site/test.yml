@@ -1,5 +1,5 @@
 ---
 - hosts: graphite
   become: True
-  roles:
-    - monitor/graphite
+  tasks:
+    - shell: echo hi
