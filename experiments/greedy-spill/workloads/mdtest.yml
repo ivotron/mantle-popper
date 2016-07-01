@@ -1,0 +1,25 @@
+---
+- hosts: clients[0], clients[1]
+  tasks:
+  - name: run the metadata benchmark
+    shell: >
+           docker run --rm \
+             --name=client \
+             --volumes-from cephfs \
+             michaelsevilla/mdtest \
+             -F -C -n 100000 -d /cephfs/greedy-spill-{{ ansible_hostname }}
+    register: results
+
+  - name: spit results to a file
+    local_action: >
+      copy 
+      content={{ results.stdout }} 
+      dest=../results/mdtest-{{ inventory_file | basename }}-{{ results.start | replace(' ', '_') }}.txt
+    with_items: "{{ results }}"
+
+- name: get the status of the cluster
+  hosts: mons
+  tasks:
+  - command:  docker exec {{ ansible_hostname }} ceph -s
+    register: result
+  - debug:    var=result.stdout_lines

@@ -1,0 +1,15 @@
+---
+dummy:
+
+mds_containerized_deployment: true
+ceph_mds_docker_username: michaelsevilla
+ceph_mds_docker_imagename: mantle:jewel
+ceph_mds_docker_extra_env: "MDS_NAME=mds-{{ ansible_hostname }},CEPHFS_DATA_POOL_PG=4096,CEPHFS_METADATA_POOL_PG=4096"
+
+ceph_perf_dump: "{{ playbook_dir }}/ceph_perf_dump.py"
+
+collectl_container_name: "node-stats"
+collectl_args: "-sc -i 1"
+
+perfdump_container_name: "mds-stats"
+perfdump_args: "192.168.140.2"

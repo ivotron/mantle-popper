@@ -1,0 +1,3 @@
+---
+ceph_client_docker_username: michaelsevilla
+ceph_client_docker_imagename: mantle:jewel
