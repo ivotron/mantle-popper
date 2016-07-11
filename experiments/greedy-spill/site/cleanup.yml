@@ -10,7 +10,7 @@
     file: path="{{ playbook_dir }}/fetch" state=absent
 
   - name: delete old logs
-    shell: ls -d {{ playbook_dir|dirname }}/results/logs/*.log
+    shell: ls -d {{ playbook_dir|dirname }}/results/{{ site }}/logs/*.log
     register: logs
     ignore_errors: True
   - file: path={{ item }} state=absent
@@ -18,7 +18,7 @@
     - "{{ logs.stdout_lines }}"
 
   - name: delete old utilizations
-    shell: ls -d {{ playbook_dir|dirname }}/results/utilization/* | grep -v gitkeep
+    shell: ls -d {{ playbook_dir|dirname }}/results/{{ site }}/utilization/* | grep -v gitkeep
     register: utilizations
     ignore_errors: True
   - file: path={{ item }} state=absent
@@ -26,7 +26,7 @@
     - "{{ utilizations.stdout_lines }}"
 
   - name: delete old results
-    shell: ls -d {{ playbook_dir|dirname }}/results/*.txt
+    shell: ls -d {{ playbook_dir|dirname }}/results/{{ site }}/raw/*.txt
     register: results
     ignore_errors: True
   - file: path={{ item }} state=absent

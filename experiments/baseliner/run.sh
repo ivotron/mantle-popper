@@ -10,6 +10,4 @@ ceph.yml \
   workloads/netbench.yml \
 collect.yml
 
-cd ../
-tar czf baseliner.tar.gz baseliner
-cd -
+tar czf ../baseliner.tar.gz ../baseliner

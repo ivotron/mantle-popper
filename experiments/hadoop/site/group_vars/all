@@ -1,0 +1,19 @@
+---
+repetitions: 3
+
+fsid: "e9570dd8-03ad-45f0-8a74-ec9b3bb7095f"
+docker: true
+install_docker: false
+
+fetch_directory: fetch/
+
+##########
+# DOCKER #
+##########
+hadoop_docker_username: michaelsevilla
+hadoop_docker_imagename: hadoopdev
+
+container_name_namenode: "namenode"
+container_name_datanode: "datanode"
+container_name_resourcemanager: "resourcemanager"
+container_name_nodemanager: "nodemanager"

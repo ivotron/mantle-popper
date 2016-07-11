@@ -1,0 +1,32 @@
+<configuration>
+    <property>
+        <name>yarn.nodemanager.aux-services</name>
+        <value>mapreduce_shuffle</value>
+    </property>
+
+    <property>
+        <name>yarn.nodemanager.localizer.address</name>
+        <value>${yarn.nodemanager.hostname}:8041</value>
+    </property>
+
+    <property>
+        <name>yarn.nodemanager.webapp.address</name>
+        <value>${yarn.nodemanager.hostname}:8043</value>
+    </property>
+
+    <property>
+      <name>yarn.application.classpath</name>
+      <value>/usr/local/hadoop/etc/hadoop, /usr/local/hadoop/share/hadoop/common/*, /usr/local/hadoop/share/hadoop/common/lib/*, /usr/local/hadoop/share/hadoop/hdfs/*, /usr/local/hadoop/share/hadoop/hdfs/lib/*, /usr/local/hadoop/share/hadoop/mapreduce/*, /usr/local/hadoop/share/hadoop/mapreduce/lib/*, /usr/local/hadoop/share/hadoop/yarn/*, /usr/local/hadoop/share/hadoop/yarn/lib/*, /usr/local/hadoop/share/hadoop/tools/lib/*</value>
+    </property>
+
+    <property>
+    <name>yarn.nodemanager.delete.debug-delay-sec</name>
+    <value>600</value>
+  </property>
+
+  <property>
+      <name>yarn.resourcemanager.hostname</name>
+      <value>issdm-3</value>
+  </property>
+
+</configuration>

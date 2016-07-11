@@ -1,0 +1,10 @@
+delta,cmd
+"0:01:13.417219", "docker exec hadoop-namenode /usr/local/hadoop/bin/hadoop jar /usr/local/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.1.jar randomtextwriter -Dmapreduce.randomtextwriter.bytespermap=10 out"
+"0:00:04.624960", "docker exec hadoop-namenode /usr/local/hadoop/bin/hadoop dfs -ls out"
+"0:00:04.457384", "docker exec hadoop-namenode /usr/local/hadoop/bin/hadoop dfs -rm -r out"
+"0:00:58.537004", "docker exec hadoop-namenode /usr/local/hadoop/bin/hadoop jar /usr/local/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.1.jar randomtextwriter -Dmapreduce.randomtextwriter.bytespermap=10 out"
+"0:00:04.610443", "docker exec hadoop-namenode /usr/local/hadoop/bin/hadoop dfs -ls out"
+"0:00:04.632404", "docker exec hadoop-namenode /usr/local/hadoop/bin/hadoop dfs -rm -r out"
+"0:00:57.859708", "docker exec hadoop-namenode /usr/local/hadoop/bin/hadoop jar /usr/local/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.1.jar randomtextwriter -Dmapreduce.randomtextwriter.bytespermap=10 out"
+"0:00:04.717582", "docker exec hadoop-namenode /usr/local/hadoop/bin/hadoop dfs -ls out"
+"0:00:04.634274", "docker exec hadoop-namenode /usr/local/hadoop/bin/hadoop dfs -rm -r out"

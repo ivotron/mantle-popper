@@ -14,7 +14,7 @@
     local_action: >
       copy 
       content={{ results.stdout }} 
-      dest=../results/mdtest-{{ inventory_file | basename }}-{{ results.start | replace(' ', '_') }}.txt
+      dest=../results/{{ site }}/raw/mdtest-{{ inventory_file | basename }}-{{ results.start | replace(' ', '_') }}.txt
     with_items: "{{ results }}"
 
 - name: get the status of the cluster

@@ -1,0 +1,14 @@
+---
+
+- name: run the job n times
+  shell: "{{ item.1 }}"
+  register: result
+  with_nested:
+    - [1, 2, 3]
+    - "{{ job }}"
+
+- name: parse results
+  connection: local
+  template: src=hadoop-parse.j2 dest=../results/{{ site }}/raw/{{ output }}
+  with_items: 
+    - "{{ result.results }}"
