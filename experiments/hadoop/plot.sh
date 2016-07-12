@@ -26,6 +26,6 @@ echo "plot: construct actual graphs"
 docker run --rm \
   -v "`pwd`:/home/jovyan/work" \
   jupyter/scipy-notebook \
-  jupyter nbconvert --execute results/visualize.ipynb
+  jupyter nbconvert --execute --to pdf results/visualize.ipynb
 
-cp results/visualize.html ../graphs/hadoop.html
+cp results/visualize.pdf ../graphs/hadoop.pdf
