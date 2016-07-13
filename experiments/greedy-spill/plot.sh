@@ -44,9 +44,6 @@ docker run --rm \
   -v "`pwd`:/home/jovyan/work" \
   jupyter/scipy-notebook \
   jupyter nbconvert \
-  --stdout --execute results/visualize.ipynb \
-  >> /dev/null 
+  --stdout --execute results/visualize.ipynb >> visualize.html
 
-for i in cache nocache; do
-  cp results/$i/*.png ../graphs/
-done
+cp visualize.html ../graphs/greedy-spill.html
