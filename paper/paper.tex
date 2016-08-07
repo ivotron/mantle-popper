@@ -1,0 +1,501 @@
+%\documentclass[conference]{IEEEtran}
+\documentclass[conference]{acm_proc_article-sp} \usepackage[english]{babel}
+\usepackage[utf8]{inputenc} \usepackage{amsmath}
+% Maths \usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+% Reformat the author blocks 
+\usepackage{authblk}
+% Bibliography style 
+\usepackage{natbib}
+% Ugly code 
+\usepackage{listings} 
+% Pretty code
+\usepackage{minted} \usepackage{algpseudocode} \usepackage{listings}
+% Verbatim environment 
+\usepackage{courier}
+% Change lstlisting 
+\usepackage{array} 
+% Table 
+\usepackage{mathtools}
+% Equations 
+\usepackage{tikz} 
+% Drawing stuff
+\usepackage{caption}	
+%Needed when compiling locally
+\usepackage{subcaption}
+
+\title{The Latency and Lifetime of a CephFS Request} \author[1]{Michael
+Sevilla} \author[1]{Noah Watkins} \author[1]{Carlos Maltzahn} \author[1]{Ike
+Nassi} \author[1]{Scott Brandt} \author[2]{Sage Weil} \author[2]{Greg Farnum}
+\author[3]{Sam Fineberg} \affil[1]{UC Santa Cruz, \{msevilla, jayhawk, carlosm,
+inassi, scott\}@soe.ucsc.edu} \affil[2]{Red Hat, \{sage, gfarnum\}@redhat.com}
+\affil[3]{HP Storage, fineberg@hp.com} \renewcommand\Authands{, }
+
+\date{\today}
+
+\begin{document} \maketitle
+
+\begin{abstract}
+
+\end{abstract}
+
+\section{Introduction}
+
+% Our specific problem 2. this is sufficiently challenging
+
+In a POSIX file system, whenever a file is touched the client must access the
+file's metadata. Serving metadata and maintaining a file system namespace for
+today's workloads is sufficiently challenging because metadata requests impose
+small, frequent accesses on the underlying storage
+system~\cite{roselli:atec2000-FS-workloads}. This skewed workload is very
+different from data I/O workloads. As a result, file system metadata services
+do not scale for sufficiently large systems in the same way that read and write
+throughput do~\cite{abad:techreport2012-fstrace, abad:ucc2012-mimesis,
+alam:pdsw2011-metadata-scaling, weil:osdi2006-ceph}. Furthermore, clients
+expect fast metadata access, making it difficult to apply data compressions and
+transformations~\cite{leung:atc2008-nfs-trace}. When developers scale file
+systems, the metadata service becomes the performance critical component. 
+
+% How current approaches fall flat
+
+One approach for servicing metadata requests more quickly is to distribute the
+metadata service. CephFS, the POSIX-compliant file system for
+Ceph~\cite{weil:osdi2006-ceph}, takes this approach; it distributes metadata
+amongst metadata servers (MDSs) using dynamic subtree
+partitioning~\cite{weil:sc2004-dyn-metadata}. 
+
+% Problem
+
+Distributing file system metadata across a cluster is difficult because
+workload hotspots skew requests towards the same servers. This unbalanced
+behavior overloads those servers and reduces the scalability of the system. The
+reason that more requests go to certain servers is because POSIX requires path
+traversals to verify access controls ({\it e.g.,} permissions).
+
+% Specifically
+
+Getting the metadata for a pathname requires recursing up each parent directory
+to ensure that the client has access to the object. With this scheme, many
+files can share the same pathname prefix resulting in more requests for parent
+metadata. As a result, metadata near the top of the hierarchical namespace
+({i.e.} root inodes) are accessed more frequently. 
+
+% Motivation Why this would be a good metric
+
+Previous work~\cite{sevilla:sc15-mantle} attempted to balance load across the
+metdata cluster but the scalability and performance of the system was limited
+by CephFS's metadata protocols. the metrics used to make these migration
+decisions have high variance and do not accurately reflect the state of the
+system. Eventually, we want to examine {\it request type} locality  as a metric
+for balancing metadata load. Requests have different latencies and behaviors,
+which adhere to the system's metadata protocols. It would be a good metric
+because they usually adhere to the same code path, so if latencies start
+increasing, then it is an indication of system overload. Treating all requests
+as the same is a fatal mistake because not all requests do the same thing.
+
+Load balancing is a worthwhile goal, especially with the rise of load balancing
+in other fields (computing~\cite{zhang:journal2010-cloud-challenges} and
+databases~\cite{elmore:sigmod2013-pythia}) and with movable resources,
+cores~\cite{zhang:journal2010-cloud-challenges},
+memory~\cite{chapman:atc2009-vnuma}, IO~\cite{raj:hpdc2007-io-virtualization},
+and network~\cite{georgiadis:atn1996-network-qos}, on the horizon. But in this
+paper, we focus on the communication protocol between MDS nodes to see if a
+shared log is as effective as custom RPCs.
+
+\section{Related Work} 
+
+\subsection{Consensus with RPCs}
+
+In state machine replication (SMR), nodes store a copy of the log and use a 
+consensus algorithm to keep the log up to data. Distributed consensus is difficult
+because processes operating on different copies of the log in parallel need to 
+reach an agreement. In general, the most renowned family of distributed consensus algorithms is PAXOS~\cite{PAXOS}. These algorithms 
+take streams of proposal updates and produce an agreement about the ordering 
+events. Acceptors form a total-ordered cluster and learners 
+replicate the service. Clients send mutations to the TO cluster, which orders 
+the store commands, persists them, and returns the sequence of mutations to the
+learners.~\cite{malkhi:sigops12-paxos} lays out the disadvantages of this approach:
+
+\begin{itemize}
+	\item wastes network/storage resources because it moves data: one solution
+    is to deploy learners as the TO-cluster of acceptors but this approach 
+    (1) requires more learners and (2) has clients fight for entries.
+    \item load distribution because of partitioned state: web-scale systems relax 
+    consistency but this creates workload hotspots.  
+\end{itemize}
+
+Ceph isolates PAXOS as a service in monitor processes (MONs)~\cite{website:ceph-mon}. Versions for the different services, which include authentication, logging, and MDS/MON/OSD/PG maps, are fed to the PAXOS instance, which gets consensus from the other PAXOS instances in the cluster. The combination of these services helps the MON understand the state of the cluster. This process is not used for consistency in the Ceph File System (CephFS), probably because of performance.
+
+\subsubsection{Consensus in Distributed File Systems}
+
+One approach for mediating access and maintaining consistency in file systems
+is to use RPCs. To make file systems scalable, many storage systems focus on
+reducing the number of RPCs per operation ({\it i.e.} RPC amplification),
+consistency (semantics of \texttt{readdir}), load balance (how much work each
+MDS is doing), scalability (depends on the workload), and availability. These
+RPCs are a way of forming a consensus between MDS nodes but minimizing the
+number of RPCs has positive effects on network and memory consumption.
+
+High performance computing has unique requirements for file systems ({e.g.}, fast creates) and well-defined workloads (e.g., workflows), which allow many storage systems to ``lock'' parts of the namespace to improve performance and scalability. IndexFS~\cite{} aggressively caches paths and permissions on the client by handing out leases; metadata may only be modified when all leases have expired. BatchFS~\cite{} goes a step further and assumes the application coordinates disparate accesses to the namespace, so the clients can do batch local operations and merge with a global namespace image lazily to avoid server synchronization. Similarily, DeltaFS~\cite{} eliminates RPC traffic using subtree snapshots for non-conflicting workloads and middleware for conflicting workloads; this reduces false sharing and server synchronization. MarFS~\cite{} eliminatse non-essential file system features and instead partition namespace by ``project directories"; admins lock subtrees to so that each directory can have its own GPFS cluster. TwoTiers~\cite{} eliminates high-latencies by storing metadata in a flash tier; apps lock the namespace so that metadata can be. 
+
+IndexFS~\cite{ren:sc2014-indexfs} aggressively caches pathnames and their
+permissions on the client servers. Modifications to metadata cached by clients
+is delayed until all client leases have expired. This reduces the RPC
+amplification to 1 when mutatating directory metadata ({\it e.g.,}
+\texttt{mkdir}, \texttt{chmod}, etc.) because clients are not querying MDSs for
+path traversals. The disadvantage of this approach is the high latency of
+mutation operations (reads to filenames).  ShardFS~\cite{xiao:socc2015-shardfs}
+replicates metadata (specifically directory lookup state) across the MDS
+cluster, reducing the RPC amplification to 1 for file operations ({e.g.,}
+\texttt{stat}, \texttt{chmod}, \texttt{chown}, etc.). Modifications to the
+directory lookup state are done with optimistic concurrecny control and fall
+back to retry if verification fails. The disadvantage of this appraoch is the
+high number of RPCs for maintaining directory metadata mutations (writes to
+directories).  Systems that do both, like
+CephFS~\cite{weil:sc2004-dyn-metadata, weil:osdi2006-ceph} have significant
+complexity as it is difficult to determine when to replicate vs. cache,
+when/where to migrate load, and how much load to
+migrate~\cite{sevilla:sc2015-mantle}. It tries to replicate on reads and
+partition on writes but determining what the workload is doing (reading or
+writing) is difficult.
+
+
+
+
+
+TODO
+- show root inode popularity
+- show CephFS replication
+- re-show CephFS partitioning
+
+\subsection{Consensus with logs}
+
+Consensus algorithms are implemented with RPCs among servers (in our case MDS
+nodes) but an alternative is to have each MDS node consult a shared log.
+CORFU~\cite{balakrishnan:nsdi12-corfu} demonstrated that a cluster of flash devices can create a
+shared log that is fast enough to support hundreds of clients appending to the
+tail. The log enforces strong consistency by ensuring a globally-ordered sequence of updates which achieves the same goal of SMR. It does this without using SMR techniques:
+\begin{itemize}
+	\item Time-slicing instead of partitioning. Parallelism
+    is at the IO level instead of splitting data into object streams, which loses
+    atomicity and load balancing across partitioning.
+    \item Decoupling sequencing from I/O: throughput is bounded by the speed of
+    the sequencer instead of a head node that sets up proposal pipelines
+\end{itemize}
+
+Tango~\cite{balakrishnan:sosp13-tango} demonstrates the power and versatility of the shared log by layering objects on CORFU. These objects provide a consistent view of state
+across clients and replicas and the interface lets clients efficiently share
+different objects for services on the same log.
+
+\section{Motivation}
+
+\label{motivation} 
+
+We designed a metadata balancer called Mantle that separates metadata migration
+policies from its mechanisms by accepting policies as injectable code. For
+example, to control when metadata load is migrated, the administrator can
+inject one of the policies shown in Figure~\ref{listing:balancers}. The greedy
+spill balancer aggressively migrates load when the current MDS
+(\texttt{whoami}) has  metadata load and when its neighbor (\texttt{whoami})
+has none. The fill \& spill balancer conservatively migrates load by sending
+requests to the current MDS until its CPU utilization eclipses a threshold
+(45\%). For these balancers, the metrics for determining when the MDS is
+overloaded are the the number of metadata requests and CPU utilization,
+respectively.
+
+\begin{listing} 
+
+\begin{minted}[frame=lines]{lua} 
+
+-- Balancer option 1: greedy spill
+
+if MDSs[whoami]["load"]>.01 and 
+   MDSs[whoami+1]["load"]<.01 then
+   
+-- Balancer option 2: fill & spill 
+
+if MDSs[whoami]["cpu"]>48 then 
+
+\end{minted}
+
+\caption{The sample balancing policies injected into Mantle [1] use poor
+metrics, like metadata load and CPU utilization, that fail to account for the
+latencies of different requests.\label{listing:balancers}}
+
+\end{listing}
+
+While these metrics work for simple jobs, they lack the important contextual
+information about the job to adequately making the mapping from traditional
+resource utilization ({\it e.g.,} CPU utilization, memory usage, etc). Using
+the number of metadata requests as a metric treats all requests the same, even
+though some requests take longer than others. CPU utilization provides an even
+more macro-level view of the MDS and does not account for how the MDS reacts to
+different requests. 
+
+\subsection{Tieing the metric to performance (goodness)}
+
+\subsection{The pitfalls of hard-coding thresholds}
+
+\section{What's Already There}
+
+% Logging vs. Tracing
+
+CephFS's MDS nodes already track the latencies for all metadata requests in the
+logs and  performance counters. Latencies collected with the debug logs are
+heavy weight and may change the behavior of the MDS. Latencies collected with
+the performance counters do not capture enough context, like what the request
+was, what the request wanted, and which MDS the request goes to.  Tracing with
+LTTng gets the best of both worlds - the flexibility of logging with without
+the overhead. 
+
+% LTTng is already used in Ceph
+
+LTTng tracepoints are used into the other Ceph components, like the OSD, RADOS
+block device, and RADOS library. The RADOS block device tracepoints are the
+most similar to the MDS tracepoints we add. They are triggered on each
+operation, like \texttt{clone}, \texttt{copy}, and \texttt{stat} and track
+metadata like the request name, snapshot name, and the read/write permissions.
+
+% Disadvantages
+
+One disadvantage of using LTTng is the overhead of adding tracepoints and
+context to existing tracepoints. The tracepoints are compiled into the source
+code, so adding new tracepoints or changing existing ones requires recompiling
+the Ceph source code and restarting the cluster. Some common context, like the
+pthread ID, can be added while the system is running, but these are specific to
+the kernel. 
+
+\section{Implementation}
+
+\label{implementation}
+
+Tracepoints are added to the MDS functions that handle requests and reply to
+clients. Unlike the RADOS block device library, the MDS is a server that
+receives requests and responds to them, so requests are funneled through these
+two functions. The tracepoints track the time, memory address, thread ID, and
+request type - these are used to the while post-processing.
+
+% Post processing
+
+The post-processing script shown in Listing~\ref{listing:post-processing}
+extracts the latencies for all requests of a certain type. It loops over each
+event in the LTTng \ (line 3), looking for any creates. If the event is the
+server receiving a create (line 6), the time stamp is saved using the thread ID
+and memory address of the request as a key. If the event is the server replying
+to a request (line 8), the latency is recorded by subtracting the current time
+from the time when the request arrived. Lines 14 and 15 calculate the moving
+average of the latencies.
+
+\begin{listing} 
+
+\begin{minted}[frame=lines,linenos]{python} 
+
+inFlight = {} latencies = [] 
+
+for event in traces.events: 
+
+	if event["type"] == CEPH_MDS_OP_CREATE: 
+    
+    	req = (event["pthread_id"], event["addr"]) 
+        
+    if event.name == "mds:req_enter": 
+    
+    	inFlight{req} = time 
+        
+    elif event.name == "mds:req_exit": 
+    
+         try:
+
+			latencies.append(time - inFlight{req}) del inFlight{req} 
+            
+         except KeyError:
+         	continue
+            
+    weights = numpy.repeat(1.0, window)/window 
+    
+    avg =numpy.convolve(latencies, weights, 'valid') 
+
+\end{minted} 
+
+\caption{The post processing script that extracts latencies and a moving average of the latencies
+for the file create request.\label{listing:post-processing}} 
+
+\end{listing}
+
+\section{Results}
+
+\label{results}
+
+Open questions \begin{itemize} \item why are the lookups and creates the same
+latencies??? (I only see one request \#) \item what is the MDS doing during
+those lags???  \item is there a queue size of 500 that throttles the number of
+in-flight requests (is this configurable? \# of\ cached inodes??) \end{itemize}
+
+\section{The Lifetime of a Request} \label{the-lifetime-of-a-request}
+
+A full description of these requests is in \texttt{fuse.h}. Briefly:
+\begin{itemize} \item \texttt{create()}: create and open a file \item
+\texttt{open()}: open a file \item \texttt{readdir()}: read directory (used by
+\texttt{ls -al}) \item \texttt{lookup()}: get the file attributes
+\begin{itemize} \item translated to \texttt{getattr} \item difference: invalid
+if the file depth is 0 \item difference: can return null dentry lease
+\end{itemize} \item \texttt{getattr()}: get the file attributes; used in
+\texttt{stat()} \item NFS operations: \texttt{LOOKUPINO},
+\texttt{LOOKUPPARENT}, \texttt{LOOKUPNAME} \end{itemize}
+
+The implementation of these operations vary depending on the storage system. In
+CephFS, the \texttt{dispatch\_client\_request()} function has the switch
+statement for dispatching requests. 
+
+\textbf{Metadata fields}: all metadata fields are protected by locks. By
+default, the fields are readable but require an exclusive write lock for
+updates. More complicated attributes (e.g., size, mtime, etc.) have state
+machines that keep track of a client's mode, which can be: single client,
+shared read, mixed read/write, or shared write. When dirfrags are distributed,
+a ``scatter-gather'' lock controls the \texttt{mtime}; this lock allows
+concurrent updates unless someone starts reading. If so, the capability is
+dropped.
+
+\textbf{Client operation}: Since the prototype, CephFS has added 4 client
+capabilities. Now, the full list has: reads, read and update, cache reads, and
+read. These are managed by sessions. 
+
+\textbf{Authority Pin}: or ``auth pin", is a reference counter on an object
+({\it e.g.,} inodes, dentries, or directories) the prevents the subtree from
+being migrated. This is implemented with a ``frozen'' state machine. When a
+subtree is ``freezing'', no auth pins can be stuck to it and no metadata
+updates are allowed. The subtree transitions to ``frozen'' when all existing
+auth pins expire. Parents of freezing or frozen subtrees are auth pinned so
+that the root inode stays put during a migration. Operations, such as
+\texttt{rdlock\_path\_pin\_ref()}, increment the auth pins with references.
+This function traverse the path, forwards if necessary, and tries to increment
+the reference on the auth pin while taking into account snapshots.
+
+
+\subsection{\texttt{create()}}
+
+This calls \texttt{open()} if the CREATE flag is omitted and  \texttt{openc()}
+otherwise.
+
+\texttt{openc()}: if the file exists, do a regular inode open, if not, create
+the file and open. First, it gets the file mode, which are the modes from
+\texttt{open/fcntl} and incluces things like \texttt{O\_WRONLY},
+\texttt{O\_CREATE}, \texttt{O\_EXCL}, etc. Then it does a path traverse by
+looking at each inode in the file path. 
+
+For each inode, it makes sure its inode, it gets or creates the dirfrag
+(checking for it remotely if possible), it checks if its frozen, then it does a
+lookup on the directory entry. If the dirfrag is remote, then the request gets
+delayed and the remote MDS will call the waiter callback (need to see where it
+gets put in). It uses this direntry to check if the client should wait on a
+duped direntry ({\it i.e.} xlocked). Then it tries to determine if the linked
+inode is missing ({\it e.g.} \texttt{ENOENT}) by checking for a miss on a null
+{\it and} readable dentry.\\
+
+\noindent\textbf{Possible forwards}: 
+
+\begin{itemize} \item path traversal \end{itemize}
+
+read, write, read write, e, create which can be write-only, read-only, or
+read-write. 
+
+\subsection{\texttt{readdir()}} \subsection{\texttt{setfilelock()}}
+
+\subsection{\texttt{create()}} \subsection{\texttt{mknod()}}
+
+\subsection{\texttt{link()/symlink }} \subsection{\texttt{mkdir()}}
+
+\subsection{\texttt{close()}}
+
+\subsection{\texttt{getattr()}} First, it prevents the path from being frozen
+and migrated by ticking the auth pin; if it can lock the object, it returns the
+inode and if it cannot, it returns. Second, it checks to see if the client has
+the EXCL capability. If it does, it does not read lock it because the
+\texttt{stat()} value will be valid (since there is only one client or the MDS
+readlocks and reads the value). It does this by trying to acquire the exclusive
+locks for the path, whether its a linke, auth, file, or xattr. Third, it stuffs
+the inode obtained from the first step into the metadata request and responds
+to the client.
+
+\subsection{\texttt{setattr()}} First, it gets the inode by trying to read lock
+the path, just like \texttt{getattr()}. Second, it checks to make sure that the
+path is not a snapshot or inode 0. Third, it tries to acquire the locks for
+mode, uid, gid, mtime, atime, size, and ctime. Then it to performs the
+operation on a projected inode, which could be truncating the file, changing
+its permissions/user/group, setting the timestamp. Finally, it logs the update
+in the journal, dirties the inode and its parents, and initiates a log flush if
+readers/writers are waiting.
+
+\begin{figure*}[tb] \centering
+\includegraphics[width=1\textwidth]{./figures/journal.png} \caption{CephFS uses
+a journal to stage updates and tracks dirty metadata in the collective memory
+of the MDSs. Each MDS maintains its own journal, which is broken up into 4MB
+segments. These segments are pushed into RADOS and deleted when that particular
+segment is trimmed from the end of the log. In addition to journal segments,
+RADOS also stores per-directory objects. \label{figure:journal}} \end{figure*}
+
+\section{Related Work} \label{related-work} 
+
+\subsection{Achieving Locality} The LARD algorithm~\cite{pai:asplos1998-lard}
+sends proxy requests to the same back-end server until it is overloaded. This
+approach directly improves temporal locality and indirectly redirects requests
+based on their content, but does directly alter the balancing based on the
+request behaviors.
+
+Algorithms that get locality \begin{itemize} \item Jiang: DULO: an effective
+buffer buffer cache management scheme to exploit both temporal and spatial
+locality \end{itemize}
+
+\subsection{Achieving Locality}
+
+@inproceedings{behzad:hpdc14, Address = {Vancouver, BC, Canada}, Author =
+{Babak Behzad and Surendra Byna and Stefan M. Wild and Prabhat and Marc Snir},
+Booktitle = {HPDC '14}, Month = {June 23-27}, Title = {Improving Parallel I/O
+Autotuning with Performance Modeling}, Year = {2014}}
+
+@inproceedings{behzad:sc13, Address = {Denver, CO}, Author = {Babak Behzad and
+Huong Vu and Thanh Luu and Joseph Huchette and Surendra Byna and Prabhat and
+Ruth Aydt and Quincey Koziol and Marc Snir}, Booktitle = {SC '13}, Month =
+{November 17-21}, Title = {Taming Parallel I/O Complexity with Auto-Tuning},
+Year = {2013}}
+
+
+\subsection{Identifying Locality} \cite{wildani:systor2011-block-locality}
+finds temporal and spatial locality for blocks by calculating offset
+differences biased with time and by partitioning accesses into distinct sets.
+This approach lacks the semantic knowledge of what the application is actually
+doing and is only applicable for data blocks, not for metadata.
+
+Some file server systems try to predict which files will be accessed next:
+
+\begin{itemize} \item Amer: File access prediction with adjustable accuracy
+\item Doraimani: File grouping for scientific data management: lessons from
+experimenting with real traces \item Kroeger: Predicting file system actions
+from prior events \item Kroeger: design and implementation of a predictive file
+prefetching algorithm \item Sivathanu: semantically-smart disk systems \item
+Arpacci-Dusseau: semantically-smart disk systems: past, present, and future
+\end{itemize}
+
+Locality in file system workloads \begin{itemize} \item Amer: Aggregating
+caches: A mechanisms for implicit file prefetching \item Ari: ACME: adaptive
+caching using multiple experts \item Doraimani: File grouping for scientific
+data management: lessons from experimenting with real traces \item Li: C-miner:
+mining block correlations in storage systems \end{itemize}
+
+Figuring out what the application is doing \begin{itemize} \item Yadwadkar:
+discovery of application workloads from network file traces \end{itemize}
+
+To optimize latency, per-request behaviors have been studied extensively,
+especially to find which requests are slow because of synchronous I/O for cache
+coherence and consistency. Speculator~\cite{nightingale:sosp2005-speculator}
+identifies synchronous I/O for cache coeherence/consistency as a source of
+latency, so it masks multiple round trip delays, like listing directories, by
+allowing computation on stale data while waiting for server's response to a
+previous request. 
+
+\section{Conclusion}
+
+
+\bibliographystyle{abbrv} \bibliography{sigproc}  
+
+\end{document}	
