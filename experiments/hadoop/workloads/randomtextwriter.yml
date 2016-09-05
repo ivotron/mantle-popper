@@ -1,0 +1,12 @@
+---
+
+- hosts: namenode
+  tasks:
+    - shell: "{{ hadoop }} dfsadmin -safemode leave"
+    - set_fact:
+        job:
+          - "{{ hadoop }} jar {{ binary }} randomtextwriter -Dmapreduce.randomtextwriter.bytespermap=10 out"
+          - "{{ hadoop }} dfs -ls out"
+          - "{{ hadoop }} dfs -rm -r out"
+        output: "randomtextwriter.out"
+    - include: run-hadoop.yml
