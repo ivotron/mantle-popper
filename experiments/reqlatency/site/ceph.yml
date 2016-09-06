@@ -1,0 +1,57 @@
+---
+# Defines deployment design and assigns role to server groups
+
+- include: cleanup.yml
+
+- hosts: mons
+  become: True
+  roles:
+  - ceph-mon
+  serial: 1 # MUST be '1' WHEN DEPLOYING MONITORS ON DOCKER CONTAINERS
+
+- hosts: osds
+  become: True
+  roles:
+  - ceph-osd
+
+- hosts: mdss
+  become: True
+  roles:
+  - ceph-mds
+  serial: 1 # Please make the MDSs come in a specific order
+
+- name: wait for the cluster to come up
+  hosts: mons
+  tasks:
+  - command:  docker exec {{ ansible_hostname }} ceph -s
+    register: result
+    until:    result.stdout.find("HEALTH_OK") != -1
+    retries:  120
+  - debug:    var=result.stdout_lines
+
+- hosts: clients
+  become: True
+  roles:
+    - ceph-client
+
+- hosts: graphite
+  become: True
+  roles: 
+    - monitor/graphite
+
+- hosts: mdss
+  become: True
+  roles:
+    - monitor/collectl
+    - ceph/ceph-stats
+  tasks:
+    - name: updating apt cache
+      shell: docker exec ceph-{{ ansible_hostname }}-mds apt-get update -y
+    - name: installing lttng-tools
+      shell: docker exec ceph-{{ ansible_hostname }}-mds apt-get install -y lttng-tools
+    - name: create a session and dumping in /root/lttng
+      shell: docker exec ceph-{{ ansible_hostname }}-mds lttng create -o /var/lib/ceph/lttng
+    - name: enabling mds events
+      shell: docker exec ceph-{{ ansible_hostname }}-mds lttng enable-event -u --tracepoint mds:* -c 0
+    - name: starting lttng
+      shell: docker exec ceph-{{ ansible_hostname }}-mds lttng start
