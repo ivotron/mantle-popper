@@ -1,0 +1,22 @@
+1. Introduction
+- programmability: exposing Mantle as a service
+
+2. Problem
+- POSIX File System Locality (does it exist)?
+- ZLog Sequencer
+- Docker Swarm
+
+What is unique: Hotspots/flash crowds
+- moving resources to alleviate load
+- resources are small and migrations are fast
+- locality and not just round robin
+
+3. Solution: Mantle in different places
+
+4. Implementation
+
+5. Results
+
+6. Related Work
+
+7. Conclusion
