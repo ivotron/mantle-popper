@@ -1,0 +1,9 @@
+---
+
+- hosts: localhost
+  gather_facts: False
+  tasks:
+  - shell: ls; sleep 63
+    register: op
+  - connection: local
+    template: src="../../workloads/parse-runtime.j2" dest="./blah.txt"

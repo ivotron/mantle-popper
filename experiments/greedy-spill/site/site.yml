@@ -1,0 +1,92 @@
+---
+# Defines deployment design and assigns role to server groups
+
+- hosts: mons
+  become: True
+  roles:
+  - ceph-mon
+  serial: 1 # MUST be '1' WHEN DEPLOYING MONITORS ON DOCKER CONTAINERS
+
+- hosts: osds
+  become: True
+  roles:
+  - ceph-osd
+
+- hosts: mdss
+  become: True
+  roles:
+  - ceph-mds
+  serial: 1 # Please make the MDSs come in a specific order
+
+- name: wait for the cluster to come up
+  hosts: mons
+  tasks:
+  - command:  docker exec {{ ansible_hostname }} ceph -s
+    register: result
+    until:    result.stdout.find("HEALTH_OK") != -1
+    retries:  120
+  - debug:    var=result.stdout_lines
+
+- hosts: clients
+  become: True
+  roles:
+    - ceph-client
+
+- name: start Mantle!!!
+  hosts: mdss
+  become: True
+  tasks: 
+    - name: enable the RADOS dir
+      command: docker exec ceph-{{ ansible_hostname }}-mds chmod -R 777 /usr/share/ceph/rados-classes/
+
+- hosts: mons
+  become: True
+  tasks:
+    - name: setup mon convenience functions
+      set_fact:
+        ceph: "docker run --rm --entrypoint=ceph -v /etc/ceph:/etc/ceph {{ ceph_mon_docker_username }}/{{ ceph_mon_docker_imagename }}"
+        rados: "docker run --rm --entrypoint=rados -v /etc/ceph:/etc/ceph {{ ceph_mon_docker_username }}/{{ ceph_mon_docker_imagename }}"
+
+    - name: allow multiple active MDSs
+      command: "{{ ceph }} mds set allow_multimds true --yes-i-really-mean-it"
+      run_once: True
+      tags:
+        - config
+
+    - name: activate the standby MDSs
+      command: "{{ ceph }} mds set max_mds 5"
+      run_once: True
+      tags:
+        - config
+
+    - name: get the greedy balancer
+      copy: src={{ playbook_dir }}/balancers/cls_bal_seq.lua dest=/etc/ceph/cls_bal_seq.lua
+
+    - name: put the balancer in RADOS
+      command: "{{ rados }} -p cephfs_metadata put cls_bal_seq.lua /etc/ceph/cls_bal_seq.lua" 
+
+    - name: turn on the sequencer balancer
+      command: "{{ ceph }} mds set lua_balancer_script bal_seq"
+      run_once: True
+
+
+- hosts: graphite
+  become: True
+  roles: 
+    - monitor/graphite
+
+- hosts: mdss
+  become: True
+  roles:
+    - monitor/collectl
+    - ceph/ceph-stats
+
+- hosts: graphite
+  tasks:
+    - name: wait for graphite to start receiving reply metrics
+      shell: docker exec graphite ls /opt/graphite/storage/whisper/{{ groups['mdss'][0] }}/mds/reply.wsp
+      register: result
+      until: result.rc == 0
+      retries: 600
+      poll: 60
+

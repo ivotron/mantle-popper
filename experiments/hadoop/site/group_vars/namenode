@@ -1,0 +1,4 @@
+---
+
+binary: "/usr/local/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.1.jar"
+hadoop: "docker exec hadoop-namenode /usr/local/hadoop/bin/hadoop"

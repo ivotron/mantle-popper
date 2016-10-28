@@ -1,0 +1,20 @@
+---
+
+- name: remove everything
+  shell: docker exec cephfs rm -r /cephfs/*
+  run_once: True
+  register: op
+
+- name: parse out the runtimes for the remove
+  connection: local
+  template: src="parse-runtime.j2" dest="{{ output }}/rm_{{ ansible_hostname }}"
+
+- name: append to runtimes file
+  connection: local
+  shell: cat {{ output }}/rm_{{ ansible_hostname }} >> {{ output }}/rm_runtimes
+
+- name: delete temporary file
+  connection: local
+  file: path="{{ output }}/rm_{{ ansible_hostname }}" state=absent
+
+

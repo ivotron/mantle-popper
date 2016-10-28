@@ -1,0 +1,1 @@
+{{ op.start }}, {{ op.delta.split(':')[0]|float*3600 + op.delta.split(':')[1]|float*60 + op.delta.split(':')[2]|float}}, {{ op.stdout_lines | length - 16}}

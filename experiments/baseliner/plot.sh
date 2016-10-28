@@ -8,7 +8,6 @@ docker run --rm \
   -v "`pwd`:/home/jovyan/work" \
   jupyter/scipy-notebook \
   jupyter nbconvert \
-  --stdout --execute results/visualize.ipynb \
-  >> /dev/null 
+  --execute results/visualize.ipynb
 
-cp results/*.png ../graphs/
+cp results/visualize.html ../graphs/baseliner.html
