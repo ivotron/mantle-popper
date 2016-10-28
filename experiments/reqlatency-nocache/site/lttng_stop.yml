@@ -1,0 +1,18 @@
+---
+- hosts: mdss
+  tasks:
+  - shell: docker exec ceph-{{ ansible_hostname }}-mds lttng stop
+    ignore_errors: true
+
+  - shell: docker exec ceph-{{ ansible_hostname }}-mds chmod -R 777 /lttng
+    ignore_errors: true
+
+  - name: tar up the traces
+    shell: docker exec ceph-{{ ansible_hostname }}-mds tar czvf /tmp/lttng.tar.gz /lttng
+    ignore_errors: true
+
+  - name: fetch those traces
+    fetch:
+      dest: "{{ output }}/lttng-{{ ansible_hostname }}.tar.gz"
+      src: "/tmp/lttng.tar.gz"
+      flat: yes

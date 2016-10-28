@@ -1,10 +1,9 @@
 ---
-- hosts: mdss
+
+- hosts: localhost
+  gather_facts: False
   tasks:
-  - shell: docker exec ceph-{{ ansible_hostname }}-mds lttng stop
-    ignore_errors: true
-  - name: tar up the traces
-    shell: docker exec ceph-{{ ansible_hostname }}-mds tar czvf /var/lib/ceph/lttng.tar.gz lttng
-    args:
-      chdir: /var/lib/ceph
-  - name:  
+  - shell: ls; sleep 63
+    register: op
+  - connection: local
+    template: src="../../workloads/parse-runtime.j2" dest="./blah.txt"

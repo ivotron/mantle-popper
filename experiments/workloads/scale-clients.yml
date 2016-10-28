@@ -1,0 +1,13 @@
+---
+
+- hosts: clients
+  tasks:
+
+  - connection: local
+    shell: echo "#start,delta,nfile" >> {{ output }}/{{ item }}
+    with_items: ["ls_runtimes", "rm_runtimes"]
+    run_once: True
+
+  - include: create_and_ls.yml nfiles="{{ item }}"
+    with_items: [1000, 10000, 100000]
+#, 1000000]

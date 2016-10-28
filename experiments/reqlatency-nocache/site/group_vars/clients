@@ -1,0 +1,4 @@
+---
+ceph_client_docker_username: piha.soe.ucsc.edu:5000/michaelsevilla
+ceph_client_docker_imagename: mds-reqlatency
+cluster: ceph

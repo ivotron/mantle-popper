@@ -4,9 +4,10 @@ set -ex
 
 root=`pwd`
 
-for experiment in baseliner greedy-spill hadoop; do
+for experiment in reqlatency reqlatency-nocache; do
   cd $root/$experiment
   ./run.sh
+  cd -
 done
 
 cd $root

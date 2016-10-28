@@ -1,0 +1,41 @@
+---
+- name: drop the os file cache
+  shell: sudo sh -c "$(which echo) 3 > /proc/sys/vm/drop_caches"
+    
+- name: run the metadata benchmark
+  shell: >
+         docker run --rm \
+           --name=client \
+           --volumes-from cephfs \
+           michaelsevilla/mdtest \
+           -F -C -n {{ nfiles }} -d /cephfs/nfiles-{{ nfiles }}
+  run_once: True
+  register: results
+
+- name: spit results to a file
+  local_action: >
+    copy 
+    content={{ results.stdout }} 
+    dest="{{ output }}/mdtest-{{ ansible_hostname }}-{{ results.start | replace(' ', '_') }}.txt"
+  run_once: True
+- pause: minutes=1
+
+- name: force a readdir from all clients
+  shell: docker exec cephfs ls -alh -R /cephfs/nfiles-{{ nfiles }}
+  register: op
+
+- name: parse out the runtimes for the readdir
+  connection: local
+  template: src="parse-runtime.j2" dest="{{ output }}/ls_{{ ansible_hostname }}"
+
+- name: append to runtimes file
+  connection: local
+  shell: cat {{ output }}/ls_{{ ansible_hostname }} >> {{ output }}/ls_runtimes
+
+- name: delete temporary file
+  connection: local
+  file: path="{{ output }}/ls_{{ ansible_hostname }}" state=absent
+
+- include: remove.yml nfiles="{{ nfiles }}"
+
+- pause: minutes=1
